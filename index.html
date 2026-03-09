@@ -293,9 +293,9 @@ const CC_IBIT_RECD  = 71500;   // $7.15 × 100 ctr × 100
 const CC_MSTR_RECD  = 65535;   // $43.69 × 15 ctr × 100
 const PS_3525_BASIS = 74200;   // $3.71 × 200 × 100
 const PS_3828_BASIS = 34290;   // $3.81 × 90 × 100
-const CS4_BASIS     = 12887;
-const CS2_BASIS     = 44156;
-const CS1_BASIS     = 49500;
+const CS4_BASIS     = 14000;
+const CS2_BASIS     = 49005;
+const CS1_BASIS     = 53460;
 
 // Key expiry dates (YYYY-MM-DD)
 const EXPIRY_CS4 = new Date('2026-09-18');
@@ -377,8 +377,8 @@ function computeProforma(btc, targetDate) {
   const ps3828Pnl = ps3828Val - PS_3828_BASIS;
 
   // ── Bull Call Spreads ──
-  const cs4Val = spreadVal(ip, 45, 60, tCS4, 15, 49,  'call');
-  const cs2Val = spreadVal(ip, 50, 70, tCS2, 20, 133, 'call');
+  const cs4Val = spreadVal(ip, 45, 60, tCS4, 15, 50,  'call');
+  const cs2Val = spreadVal(ip, 50, 70, tCS2, 20, 135, 'call');
   const cs1Val = spreadVal(ip, 70, 90, tSC,  20, 220, 'call');
   const cs4Pnl = cs4Val - CS4_BASIS;
   const cs2Pnl = cs2Val - CS2_BASIS;
@@ -516,11 +516,11 @@ function calculate() {
     </tr>
     <tr class="section-head"><td colspan="4">Bull Call Spreads · Upside</td></tr>
     <tr>
-      <td>CS4 45/60 <span style="font-size:10px;color:var(--txt3)">49 ctr · Sep 26${r.tCS4<=0?' — EXPIRED':''}</span></td>
+      <td>CS4 45/60 <span style="font-size:10px;color:var(--txt3)">50 ctr · Sep 26${r.tCS4<=0?' — EXPIRED':''}</span></td>
       <td>${f$(r.cs4Val)}</td><td>${f$(CS4_BASIS)}</td><td class="${clr(r.cs4Pnl)}">${fs$(r.cs4Pnl)}</td>
     </tr>
     <tr>
-      <td>CS2 50/70 <span style="font-size:10px;color:var(--txt3)">133 ctr · Jun 27${r.tCS2<=0?' — EXPIRED':''}</span></td>
+      <td>CS2 50/70 <span style="font-size:10px;color:var(--txt3)">135 ctr · Jun 27${r.tCS2<=0?' — EXPIRED':''}</span></td>
       <td>${f$(r.cs2Val)}</td><td>${f$(CS2_BASIS)}</td><td class="${clr(r.cs2Pnl)}">${fs$(r.cs2Pnl)}</td>
     </tr>
     <tr>
@@ -588,15 +588,15 @@ function calculate() {
       r.ps3828Val, PS_3828_BASIS, r.ps3828Pnl,
       [['Value',f$(r.ps3828Val),'blu'],['Basis',f$(PS_3828_BASIS),''],['P&L',fs$(r.ps3828Pnl),clr(r.ps3828Pnl)],['Max Payout','$90,000','']],
       'ps') +
-    optTile('CS4 45/60','Sep 2026 · 49 ctr · cost $12,887',
+    optTile('CS4 45/60','Sep 2026 · 50 ctr · cost $14,000',
       r.cs4Val, CS4_BASIS, r.cs4Pnl,
-      [['Value',f$(r.cs4Val),'blu'],['Basis',f$(CS4_BASIS),''],['P&L',fs$(r.cs4Pnl),clr(r.cs4Pnl)],['Max Payout','$73,500','']],
+      [['Value',f$(r.cs4Val),'blu'],['Basis',f$(CS4_BASIS),''],['P&L',fs$(r.cs4Pnl),clr(r.cs4Pnl)],['Max Payout','$75,000','']],
       'cs') +
-    optTile('CS2 50/70','Jun 2027 · 133 ctr · cost $44,156',
+    optTile('CS2 50/70','Jun 2027 · 135 ctr · cost $49,005',
       r.cs2Val, CS2_BASIS, r.cs2Pnl,
-      [['Value',f$(r.cs2Val),'blu'],['Basis',f$(CS2_BASIS),''],['P&L',fs$(r.cs2Pnl),clr(r.cs2Pnl)],['Max Payout','$266,000','']],
+      [['Value',f$(r.cs2Val),'blu'],['Basis',f$(CS2_BASIS),''],['P&L',fs$(r.cs2Pnl),clr(r.cs2Pnl)],['Max Payout','$270,000','']],
       'cs') +
-    optTile('CS1 70/90','Jan 2028 · 220 ctr · cost $49,500',
+    optTile('CS1 70/90','Jan 2028 · 220 ctr · cost $53,460',
       r.cs1Val, CS1_BASIS, r.cs1Pnl,
       [['Value',f$(r.cs1Val),'blu'],['Basis',f$(CS1_BASIS),''],['P&L',fs$(r.cs1Pnl),clr(r.cs1Pnl)],['Max Payout','$440,000','']],
       'cs');
