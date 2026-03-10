@@ -355,17 +355,23 @@ function computeProforma(btc, targetDate) {
   const tCS2 = timeToExpiry(targetDate, EXPIRY_CS2);
   const tSC  = timeToExpiry(targetDate, EXPIRY_SC);
 
+  // After Jan 2028 expiry: IBIT assigned at $65, MSTR assigned at $220
+  // Shares are called away — equity capped at strike prices regardless of BTC
+  const scExpired   = tSC <= 0;
+  const ibitEqPx    = Math.min(ip, 65);   // capped at strike always — CC short caps upside
+  const mstrEqPx    = Math.min(mp, 220);  // capped at strike always — CC short caps upside
+
   // ── Equity ──
   const btcVal  = EQ_BTC.qty  * btc;
-  const ibitVal = EQ_IBIT.qty * ip;
-  const mstrVal = EQ_MSTR.qty * mp;
+  const ibitVal = EQ_IBIT.qty * ibitEqPx;
+  const mstrVal = EQ_MSTR.qty * mstrEqPx;
   const btcPnl  = btcVal  - EQ_BTC.basis;
   const ibitPnl = ibitVal - EQ_IBIT.basis;
   const mstrPnl = mstrVal - EQ_MSTR.basis;
 
-  // ── Covered Calls ── (short: liability = close cost)
-  const ibitCCMark  = bsCall(ip, 65,  tSC,  R, IV_IBIT);
-  const mstrCCMark  = bsCall(mp, 220, tSC,  R, IV_MSTR);
+  // ── Covered Calls ── (short: liability = close cost; zero after expiry/assignment)
+  const ibitCCMark  = scExpired ? 0 : bsCall(ip, 65,  tSC, R, IV_IBIT);
+  const mstrCCMark  = scExpired ? 0 : bsCall(mp, 220, tSC, R, IV_MSTR);
   const ibitCCLiab  = ibitCCMark * 100 * 100;   // 100 ctr
   const mstrCCLiab  = mstrCCMark * 100 * 15;    // 15 ctr
   const ccTotalLiab = ibitCCLiab + mstrCCLiab;
@@ -388,11 +394,11 @@ function computeProforma(btc, targetDate) {
   const equity      = btcVal + ibitVal + mstrVal;
   const allSpreads  = ps3525Val + ps3828Val + cs4Val + cs2Val + cs1Val;
   const totalPortfolio = equity + allSpreads;
-  const nakedValue  = btcVal + ibitVal + mstrVal;
+  const nakedValue  = EQ_BTC.qty * btc + EQ_IBIT.qty * ip + EQ_MSTR.qty * mp;
   const delta       = totalPortfolio - nakedValue; // = allSpreads (by definition)
 
   return {
-    btc, ip, mp, targetDate,
+    btc, ip, mp, ibitEqPx, mstrEqPx, scExpired, targetDate,
     tCS4, tPS, tCS2, tSC,
     btcVal, ibitVal, mstrVal, btcPnl, ibitPnl, mstrPnl,
     equity, equityPnl: btcPnl + ibitPnl + mstrPnl,
@@ -498,11 +504,11 @@ function calculate() {
       <td>${f$(r.btcVal)}</td><td>${f$(EQ_BTC.basis)}</td><td class="${clr(r.btcPnl)}">${fs$(r.btcPnl)}</td>
     </tr>
     <tr>
-      <td>IBIT Shares <span style="font-size:10px;color:var(--txt3)">10,000 sh @ ${f$(r.ip,2)}</span></td>
+      <td>IBIT Shares <span style="font-size:10px;color:var(--txt3)">10,000 sh @ ${f$(r.ibitEqPx,2)}${r.scExpired?' ★ assigned':r.ip>65?' ★ capped (CC ITM)':''}</span></td>
       <td>${f$(r.ibitVal)}</td><td>${f$(EQ_IBIT.basis)}</td><td class="${clr(r.ibitPnl)}">${fs$(r.ibitPnl)}</td>
     </tr>
     <tr>
-      <td>MSTR Shares <span style="font-size:10px;color:var(--txt3)">1,500 sh @ ${f$(r.mp,2)}</span></td>
+      <td>MSTR Shares <span style="font-size:10px;color:var(--txt3)">1,500 sh @ ${f$(r.mstrEqPx,2)}${r.scExpired?' ★ assigned':r.mp>220?' ★ capped (CC ITM)':''}</span></td>
       <td>${f$(r.mstrVal)}</td><td>${f$(EQ_MSTR.basis)}</td><td class="${clr(r.mstrPnl)}">${fs$(r.mstrPnl)}</td>
     </tr>
     <tr class="section-head"><td colspan="4">Put Spreads · Protection</td></tr>
@@ -543,11 +549,11 @@ function calculate() {
     </div>
     <div class="nk-item">
       <div><div class="nk-lbl">IBIT Shares</div><div class="nk-sub">10,000 sh × ${f$(r.ip,2)}</div></div>
-      <div class="nk-val blu">${f$(r.ibitVal)}</div>
+      <div class="nk-val blu">${f$(EQ_IBIT.qty * r.ip)}</div>
     </div>
     <div class="nk-item">
       <div><div class="nk-lbl">MSTR Shares</div><div class="nk-sub">1,500 sh × ${f$(r.mp,2)}</div></div>
-      <div class="nk-val blu">${f$(r.mstrVal)}</div>
+      <div class="nk-val blu">${f$(EQ_MSTR.qty * r.mp)}</div>
     </div>
     <div class="nk-total">
       <div class="nk-total-lbl">Naked Total</div>
@@ -578,7 +584,9 @@ function calculate() {
   optsRow.innerHTML =
     optTile('IBIT $65 CC Short','Jan 2028 · 100 ctr · rcvd $7.15/sh',
       -r.ibitCCLiab, -CC_IBIT_RECD, CC_IBIT_RECD - r.ibitCCLiab,
-      [['Mark/sh',f$(r.ibitCCMark,2),''],['Close Liability',f$(r.ibitCCLiab),'red'],['Originally Rcvd',f$(CC_IBIT_RECD),'grn'],['Net P&L',fs$(CC_IBIT_RECD-r.ibitCCLiab),clr(CC_IBIT_RECD-r.ibitCCLiab)]],
+      r.scExpired
+        ? [['Status','ASSIGNED / SETTLED','grn'],['Premium Rcvd',f$(CC_IBIT_RECD),'grn'],['Net P&L',fs$(CC_IBIT_RECD),'grn']]
+        : [['Mark/sh',f$(r.ibitCCMark,2),''],['Close Liability',f$(r.ibitCCLiab),'red'],['Originally Rcvd',f$(CC_IBIT_RECD),'grn'],['Net P&L',fs$(CC_IBIT_RECD-r.ibitCCLiab),clr(CC_IBIT_RECD-r.ibitCCLiab)]],
       'cc') +
     optTile('PS 35/25','Jan 2027 · 200 ctr · cost $74,200',
       r.ps3525Val, PS_3525_BASIS, r.ps3525Pnl,
@@ -603,7 +611,9 @@ function calculate() {
   document.getElementById('optsRow2').innerHTML =
     optTile('MSTR $220 CC Short','Jan 2028 · 15 ctr · rcvd $43.69/sh',
       -r.mstrCCLiab, -CC_MSTR_RECD, CC_MSTR_RECD - r.mstrCCLiab,
-      [['Mark/sh',f$(r.mstrCCMark,2),''],['Close Liability',f$(r.mstrCCLiab),'red'],['Originally Rcvd',f$(CC_MSTR_RECD),'grn'],['Net P&L',fs$(CC_MSTR_RECD-r.mstrCCLiab),clr(CC_MSTR_RECD-r.mstrCCLiab)]],
+      r.scExpired
+        ? [['Status','ASSIGNED / SETTLED','grn'],['Premium Rcvd',f$(CC_MSTR_RECD),'grn'],['Net P&L',fs$(CC_MSTR_RECD),'grn']]
+        : [['Mark/sh',f$(r.mstrCCMark,2),''],['Close Liability',f$(r.mstrCCLiab),'red'],['Originally Rcvd',f$(CC_MSTR_RECD),'grn'],['Net P&L',fs$(CC_MSTR_RECD-r.mstrCCLiab),clr(CC_MSTR_RECD-r.mstrCCLiab)]],
       'cc');
 }
 
